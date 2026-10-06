@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Estoque FEFO</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --primary: #059669;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --fefo-purple: #7c3aed;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            padding-bottom: 90px;
+        }
+
+        header {
+            background-color: #111827;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 1rem auto;
+            padding: 0 1rem;
+        }
+
+        .search-bar {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            outline: none;
+        }
+
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .filter-btn {
+            background: white;
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .filter-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .product-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 0.85rem;
+            border: 1px solid var(--border);
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .product-card.fefo-alert {
+            border: 2px solid var(--fefo-purple);
+            background-color: #f5f3ff;
+        }
+
+        .product-img {
+            width: 85px;
+            height: 85px;
+            border-radius: 8px;
+            object-fit: cover;
+            background-color: #e5e7eb;
+            flex-shrink: 0;
+        }
+
+        .product-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .product-title {
+            font-weight: bold;
+            font-size: 1.05rem;
+            color: #111827;
+        }
+
+        .product-sub {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        .location-tag {
+            font-size: 0.85rem;
+            color: #1d4ed8;
+            background-color: #eff6ff;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .pallet-info {
+            font-size: 0.85rem;
+            color: #065f46;
+            background-color: #ecfdf5;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .dates-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .date-row {
+            font-size: 0.85rem;
+            color: #374151;
+        }
+
+        .expiry-box {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #111827;
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .badges-wrapper {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-fefo { background: var(--fefo-purple); color: white; }
+        .badge-ok { background: #d1fae5; color: #065f46; }
+        .badge-warn { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+
+        .qty-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+        }
+
+        .btn-qty {
+            background: #e5e7eb;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pallet-calc-box {
+            margin-top: 0.8rem;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+
+        .pallet-calc-box label {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #475569;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .pallet-calc-input {
+            width: 100%;
+            padding: 0.4rem;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .pallet-calc-result {
+            margin-top: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #1e293b;
+        }
+
+        .card-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .btn-action {
+            border: none;
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+
+        .btn-edit { background-color: #2563eb; }
+        .btn-delete { background-color: var(--danger); }
+
+        .photo-buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn-photo-option {
+            background: #f3f4f6;
+            border: 1px dashed var(--border);
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #374151;
+        }
+
+        .photo-preview {
+            width: 100%;
+            max-height: 150px;
+            object-fit: contain;
+            display: none;
+            margin-bottom: 1rem;
+            border-radius: 6px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .btn-add-float {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 0.8rem 1.8rem;
+            font-weight: bold;
+            font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 90;
+        }
+
+        .btn-reset-demo {
+            background-color: #4b5563;
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>📦 Controle de Estoque FEFO</header>
+
+    <div class="container">
+        <input type="text" class="search-bar" id="search-input" placeholder="🔍 Buscar por nome, lote ou localização..." oninput="renderApp()">
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="filters">
+                <button class="filter-btn active" onclick="setFilter('all', this)">Todos</button>
+                <button class="filter-btn" onclick="setFilter('fefo', this)">⚡ Prioridade FEFO (<= 4 sem)</button>
+                <button class="filter-btn" onclick="setFilter('danger', this)">🚫 Vencidos</button>
+            </div>
+            <button class="btn-reset-demo" onclick="forceResetDemo()">🔄 Recarregar 10 Produtos</button>
+        </div>
+
+        <div id="product-list"></div>
+    </div>
+
+    <button class="btn-add-float" onclick="openModal()">+ Adicionar Produto</button>
+
+    <!-- MODAL DE EDIÇÃO E CADASTRO -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h3 id="modal-title" style="margin-bottom: 1rem;">Editar Produto</h3>
+            <form id="product-form" onsubmit="saveProduct(event)">
+                <input type="hidden" id="field-id">
+
+                <div class="photo-buttons-grid">
+                    <div class="btn-photo-option" onclick="document.getElementById('input-camera').click()">
+                        📸 Tirar Foto
+                    </div>
+                    <div class="btn-photo-option" onclick="document.getElementById('input-file').click()">
+                        📁 Meus Arquivos
+                    </div>
+                </div>
+
+                <input type="file" id="input-camera" accept="image/*" capture="environment" style="display:none" onchange="handleFileSelect(event)">
+                <input type="file" id="input-file" accept="image/*" style="display:none" onchange="handleFileSelect(event)">
+
+                <img id="img-preview" class="photo-preview" alt="Prévia">
+                
+                <div class="form-group">
+                    <label>Nome do Produto *</label>
+                    <input type="text" id="field-name" class="form-control" required placeholder="Ex: Produto A">
+                </div>
+
+                <div class="form-group">
+                    <label>Descrição / Lote</label>
+                    <input type="text" id="field-desc" class="form-control" placeholder="Ex: Lote 101">
+                </div>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Rua / Corredor</label>
+                        <input type="text" id="field-street" class="form-control" placeholder="Ex: Rua 01">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Nível / N° / Posição</label>
+                        <input type="text" id="field-level" class="form-control" placeholder="Ex: Nível 1">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Qtd em Estoque *</label>
+                        <input type="number" id="field-qty" class="form-control" required min="0" placeholder="Ex: 500">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Qtd por Pallet</label>
+                        <input type="number" id="field-pallet-cap" class="form-control" min="1" placeholder="Ex: 100">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Data Fabricação</label>
+                        <input type="date" id="field-mfg" class="form-control">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Data Validade *</label>
+                        <input type="date" id="field-expiry" class="form-control" required>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn-action btn-edit" style="flex: 1; padding: 0.8rem;">Salvar Alteraçoes</button>
+                    <button type="button" class="btn-action btn-delete" style="flex: 1; padding: 0.8rem;" onclick="closeModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Lista fixa com 10 produtos de exemplo aleatórios
+        const defaultProducts = [
+            { id: 101, name: "Produto Exemplo 01", desc: "Lote A-101", street: "Rua 01", level: "Nível 1", qty: 450, palletCap: 100, mfg: "2026-01-10", expiry: "2026-10-20", img: "" },
+            { id: 102, name: "Produto Exemplo 02", desc: "Lote A-202", street: "Rua 01", level: "Nível 2", qty: 1200, palletCap: 200, mfg: "2026-02-15", expiry: "2026-11-15", img: "" },
+            { id: 103, name: "Produto Exemplo 03", desc: "Lote B-303", street: "Rua 02", level: "Nível 1", qty: 850, palletCap: 150, mfg: "2026-03-01", expiry: "2026-10-28", img: "" },
+            { id: 104, name: "Produto Exemplo 04", desc: "Lote B-404", street: "Rua 02", level: "Nível 3", qty: 2500, palletCap: 500, mfg: "2026-01-20", expiry: "2026-12-01", img: "" },
+            { id: 105, name: "Produto Exemplo 05", desc: "Lote C-505", street: "Rua 03", level: "Nível 1", qty: 320, palletCap: 50, mfg: "2026-04-10", expiry: "2026-10-18", img: "" },
+            { id: 106, name: "Produto Exemplo 06", desc: "Lote C-606", street: "Rua 03", level: "Nível 2", qty: 900, palletCap: 100, mfg: "2026-02-01", expiry: "2027-01-10", img: "" },
+            { id: 107, name: "Produto Exemplo 07", desc: "Lote D-707", street: "Rua 04", level: "Nível 1", qty: 1500, palletCap: 300, mfg: "2026-05-05", expiry: "2026-11-30", img: "" },
+            { id: 108, name: "Produto Exemplo 08", desc: "Lote D-808", street: "Rua 04", level: "Nível 4", qty: 600, palletCap: 100, mfg: "2026-03-20", expiry: "2026-10-15", img: "" },
+            { id: 109, name: "Produto Exemplo 09", desc: "Lote E-909", street: "Rua 05", level: "Nível 2", qty: 3000, palletCap: 1000, mfg: "2026-01-05", expiry: "2027-03-20", img: "" },
+            { id: 110, name: "Produto Exemplo 10", desc: "Lote E-010", street: "Rua 05", level: "Nível 3", qty: 750, palletCap: 250, mfg: "2026-04-01", expiry: "2026-11-05", img: "" }
+        ];
+
+        let products = [];
+
+        // Força a substituição do produto único velho pelos 10 produtos no primeiro acesso
+        try {
+            const saved = localStorage.getItem('fefo_stock_items');
+            const hasReset = localStorage.getItem('fefo_has_reset_10');
+
+            if (saved && hasReset) {
+                products = JSON.parse(saved);
+            } else {
+                // Primeira execução com este código: apaga o antigo e coloca os 10
+                products = defaultProducts;
+                localStorage.setItem('fefo_stock_items', JSON.stringify(products));
+                localStorage.setItem('fefo_has_reset_10', 'true');
+            }
+        } catch (e) {
+            products = defaultProducts;
+        }
+
+        let currentFilter = 'all';
+        let currentPhotoBase64 = '';
+
+        function forceResetDemo() {
+            if (confirm("Quer recarregar a lista com os 10 produtos de exemplo novamente?")) {
+                products = [...defaultProducts];
+                saveToStorage();
+                renderApp();
+            }
+        }
+
+        function saveToStorage() {
+            try {
+                localStorage.setItem('fefo_stock_items', JSON.stringify(products));
+            } catch (e) {
+                alert("O limite de memória do navegador foi atingido. Evite colocar fotos muito pesadas.");
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+        }
+
+        function compressAndProcessImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 250;
+                    const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.5);
+                    const preview = document.getElementById('img-preview');
+                    preview.src = currentPhotoBase64;
+                    preview.style.display = 'block';
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                compressAndProcessImage(file);
+            }
+        }
+
+        function getStatus(expiryStr) {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            const [y, m, d] = expiryStr.split('-').map(Number);
+            const exp = new Date(y, m - 1, d);
+
+            const diffTime = exp - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            const isFEFO = diffDays >= 0 && diffDays <= 28;
+            const isExpired = diffDays < 0;
+
+            return {
+                days: diffDays,
+                isFEFO: isFEFO,
+                isExpired: isExpired,
+                formattedDate: formatDate(expiryStr)
+            };
+        }
+
+        function calculatePalletConversion(qtyTotal, palletCap) {
+            if (!palletCap || palletCap <= 0) return null;
+            const pallets = Math.floor(qtyTotal / palletCap);
+            const remainder = qtyTotal % palletCap;
+            
+            let text = `${pallets} Pallet(s)`;
+            if (remainder > 0) {
+                text += ` + ${remainder} un`;
+            }
+            return text;
+        }
+
+        function updatePalletCalc(productId, requestedQtyStr) {
+            const resultElement = document.getElementById(`pallet-result-${productId}`);
+            const prod = products.find(p => p.id === productId);
+            
+            if (!prod || !prod.palletCap || prod.palletCap <= 0) return;
+
+            const reqQty = Number(requestedQtyStr);
+            if (!requestedQtyStr || reqQty <= 0) {
+                resultElement.innerText = 'Digite uma quantidade acima.';
+                return;
+            }
+
+            const pallets = Math.floor(reqQty / prod.palletCap);
+            const remainder = reqQty % prod.palletCap;
+
+            let text = `📦 Retirar: ${pallets} pallet(s) completo(s)`;
+            if (remainder > 0) {
+                text += ` + ${remainder} un. avulsas`;
+            }
+            resultElement.innerText = text;
+        }
+
+        function renderApp() {
+            const list = document.getElementById('product-list');
+            const search = document.getElementById('search-input').value.toLowerCase();
+            list.innerHTML = '';
+
+            products.sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
+
+            const filtered = products.filter(p => {
+                const locText = `${p.street || ''} ${p.level || ''}`.toLowerCase();
+                const matchesSearch = p.name.toLowerCase().includes(search) || 
+                                     (p.desc && p.desc.toLowerCase().includes(search)) ||
+                                     locText.includes(search);
+                const status = getStatus(p.expiry);
+
+                if (currentFilter === 'fefo') return status.isFEFO;
+                if (currentFilter === 'danger') return status.isExpired;
+                return matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<p style="text-align:center; padding: 2rem; color: #888;">Nenhum produto cadastrado ou encontrado.</p>';
+                return;
+            }
+
+            filtered.forEach(p => {
+                const status = getStatus(p.expiry);
+                const card = document.createElement('div');
+                
+                let fefoClass = status.isFEFO ? 'fefo-alert' : '';
+                card.className = `product-card ${fefoClass}`;
+
+                let badgeHtml = '';
+                if (status.isExpired) {
+                    badgeHtml = `<span class="badge badge-danger">VENCIDO (${Math.abs(status.days)} dias)</span>`;
+                } else if (status.isFEFO) {
+                    badgeHtml = `
+                        <span class="badge badge-fefo">⚡ SAÍDA FEFO</span>
+                        <span class="badge badge-warn">Vence em ${status.days} dias</span>
+                    `;
+                } else {
+                    badgeHtml = `<span class="badge badge-ok">Em dia (${status.days} dias)</span>`;
+                }
+
+                let locationHtml = '';
+                if (p.street || p.level) {
+                    locationHtml = `<div class="location-tag">📍 ${p.street || ''} ${p.level ? '- ' + p.level : ''}</div>`;
+                }
+
+                let palletStockText = '';
+                if (p.palletCap && p.palletCap > 0) {
+                    const converted = calculatePalletConversion(p.qty, p.palletCap);
+                    palletStockText = `<div class="pallet-info">📐 Padrão Pallet: ${p.palletCap} un | Estoque: ${converted}</div>`;
+                }
+
+                let palletCalcHtml = '';
+                if (p.palletCap && p.palletCap > 0) {
+                    palletCalcHtml = `
+                        <div class="pallet-calc-box">
+                            <label>🚚 Simular Saída/Retirada:</label>
+                            <input type="number" class="pallet-calc-input" placeholder="Qtd de peças a retirar..." oninput="updatePalletCalc(${p.id}, this.value)">
+                            <div class="pallet-calc-result" id="pallet-result-${p.id}">Digite a quantidade para calcular pallets.</div>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <img src="${p.img || 'https://via.placeholder.com/85'}" class="product-img" alt="Foto">
+                    <div class="product-info">
+                        <div class="product-title">${p.name}</div>
+                        <div class="product-sub">${p.desc || 'Sem lote/descrição'}</div>
+                        
+                        ${locationHtml}
+                        ${palletStockText}
+
+                        <div class="dates-container">
+                            <div class="date-row">🏭 <strong>Fabricação:</strong> ${formatDate(p.mfg)}</div>
+                            <div class="expiry-box">📅 <strong>Validade:</strong> ${status.formattedDate}</div>
+                        </div>
+
+                        <div class="badges-wrapper">
+                            ${badgeHtml}
+                        </div>
+
+                        <div class="qty-controls">
+                            <span>Total un: <strong>${p.qty}</strong></span>
+                            <button class="btn-qty" onclick="changeQty(${p.id}, 1)">+</button>
+                            <button class="btn-qty" onclick="changeQty(${p.id}, -1)">-</button>
+                        </div>
+
+                        ${palletCalcHtml}
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn-action btn-edit" onclick="editProduct(${p.id})">Editar</button>
+                        <button class="btn-action btn-delete" onclick="deleteProduct(${p.id})">Excluir</button>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function changeQty(id, delta) {
+            const prod = products.find(p => p.id === id);
+            if (prod) {
+                prod.qty = Math.max(0, prod.qty + delta);
+                saveToStorage();
+                renderApp();
+            }
+        }
+
+        function setFilter(type, btn) {
+            currentFilter = type;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderApp();
+        }
+
+        function openModal() {
+            document.getElementById('product-form').reset();
+            document.getElementById('field-id').value = '';
+            document.getElementById('img-preview').style.display = 'none';
+            currentPhotoBase64 = '';
+            document.getElementById('modal-title').innerText = "Adicionar Novo Produto";
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        function editProduct(id) {
+            const p = products.find(item => item.id === id);
+            if (!p) return;
+
+            document.getElementById('field-id').value = p.id;
+            document.getElementById('field-name').value = p.name;
+            document.getElementById('field-desc').value = p.desc || '';
+            document.getElementById('field-street').value = p.street || '';
+            document.getElementById('field-level').value = p.level || '';
+            document.getElementById('field-qty').value = p.qty;
+            document.getElementById('field-pallet-cap').value = p.palletCap || '';
+            document.getElementById('field-mfg').value = p.mfg || '';
+            document.getElementById('field-expiry').value = p.expiry;
+            
+            const preview = document.getElementById('img-preview');
+            if (p.img) {
+                currentPhotoBase64 = p.img;
+                preview.src = p.img;
+                preview.style.display = 'block';
+            } else {
+                currentPhotoBase64 = '';
+                preview.style.display = 'none';
+            }
+
+            document.getElementById('modal-title').innerText = "Editar Produto";
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function saveProduct(e) {
+            e.preventDefault();
+            const id = document.getElementById('field-id').value;
+            const newProd = {
+                id: id ? Number(id) : Date.now(),
+                name: document.getElementById('field-name').value,
+                desc: document.getElementById('field-desc').value,
+                street: document.getElementById('field-street').value,
+                level: document.getElementById('field-level').value,
+                qty: Number(document.getElementById('field-qty').value),
+                palletCap: Number(document.getElementById('field-pallet-cap').value) || 0,
+                mfg: document.getElementById('field-mfg').value,
+                expiry: document.getElementById('field-expiry').value,
+                img: currentPhotoBase64
+            };
+
+            if (id) {
+                const idx = products.findIndex(p => p.id === Number(id));
+                if (idx !== -1) products[idx] = newProd;
+            } else {
+                products.push(newProd);
+            }
+
+            saveToStorage();
+            closeModal();
+            renderApp();
+        }
+
+        function deleteProduct(id) {
+            if (confirm("Deseja realmente excluir este produto?")) {
+                products = products.filter(p => p.id !== id);
+                saveToStorage();
+                renderApp();
+            }
+        }
+
+        renderApp();
+    </script>
+</body>
+</html>
